@@ -40,7 +40,7 @@ namespace facetious_nocturn.Services
             return newSession;
         }
 
-        public Guest<T> Join(string sessionKey, IPAddress ipAddress, string nameTag, T guestState)
+        public UserData<S, T> Join(string sessionKey, IPAddress ipAddress, string nameTag, T guestState)
         {
             string sessionId = GetSessionId(sessionKey);
             ActiveSession<R, S, T> session = GetSession(sessionId);
@@ -58,10 +58,15 @@ namespace facetious_nocturn.Services
             {
                 session.Guests[guestKey] = newGuest;
             });
-            return newGuest;
+            return new UserData<S, T>
+            {
+                Guest = newGuest,
+                Context = session.Session.Context,
+                SessionId = session.Session.Id
+            };
         }
 
-        public Guest<T> Kick(string sessionId, IPAddress hostIP, string guestKey)
+        public Session<R, S, T> Kick(string sessionId, IPAddress hostIP, string guestKey)
         {
             ActiveSession<R, S, T> activeSession = GetSession(sessionId);
             ValidateHostIP(activeSession, hostIP);
@@ -70,10 +75,10 @@ namespace facetious_nocturn.Services
             {
                 session.Guests.Remove(guestKey);
             });
-            return guest;
+            return activeSession.Session;
         }
 
-        public Guest<T> Leave(string sessionId, IPAddress guestIP)
+        public UserData<S, T> Leave(string sessionId, IPAddress guestIP)
         {
             ActiveSession<R, S, T> activeSession = GetSession(sessionId);
             string guestKey = BuildGuestKey(guestIP);
@@ -82,7 +87,7 @@ namespace facetious_nocturn.Services
             {
                 session.Guests.Remove(guestKey);
             });
-            return guest;
+            return activeSession.GetUserData(guestKey);
         }
 
         public Session<R, S, T> Close(string sessionId, IPAddress hostIP)

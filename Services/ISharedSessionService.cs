@@ -7,11 +7,11 @@ namespace facetious_nocturn.Services
     {
         public Session<R, S, T> Host(IPAddress ipAddress, string nameTag, R hostState, S context);
 
-        public Guest<T> Join(string sessionKey, IPAddress ipAddress, string nameTag, T guestState);
+        public UserData<S, T> Join(string sessionKey, IPAddress ipAddress, string nameTag, T guestState);
 
-        public Guest<T> Kick(string sessionId, IPAddress hostIP, string guestKey);
+        public Session<R, S, T> Kick(string sessionId, IPAddress hostIP, string guestKey);
 
-        public Guest<T> Leave(string sessionId, IPAddress guestIP);
+        public UserData<S, T> Leave(string sessionId, IPAddress guestIP);
 
         public Session<R,S,T> Close(string sessionId, IPAddress hostIP);
 

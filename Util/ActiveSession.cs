@@ -26,6 +26,16 @@ namespace facetious_nocturn.Util
             });
         }
 
+        public UserData<S,T> GetUserData(string guestKey)
+        {
+            return new UserData<S, T>
+            {
+                SessionId = Session.Id,
+                Context = Session.Context,
+                Guest = Session.Guests[guestKey]
+            };
+        }
+
         public void SubmitRequest(Action<Session<R, S, T>> request)
         {
             _changeRequestQueue.Enqueue(request);
