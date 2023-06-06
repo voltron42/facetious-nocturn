@@ -10,3 +10,6 @@ pom.xml.asc
 .hgignore
 .hg/
 /.idea/
+/.clj-kondo
+/.calva
+/.lsp

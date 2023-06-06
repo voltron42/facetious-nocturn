@@ -1,5 +1,5 @@
 (ns facetious-nocturn.server
-  (:require [clojure.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [compojure.api.sweet :as sweet]
             [compojure.api.core :as api]
             [compojure.route :as route]
@@ -30,7 +30,7 @@
                              :responses  {200 {}}
                              :handler    (fn [{:keys [query-params]}]
                                            (http/ok query-params))}})))
-        (sweet/GET "/" [] (resp/redirect "/index.html")))
+0        (sweet/GET "/" [] (resp/redirect "/index.html")))
       (sweet/routes
         (route/resources "/")
         (route/not-found "404 Not Found"))))
