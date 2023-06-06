@@ -30,7 +30,7 @@
                              :responses  {200 {}}
                              :handler    (fn [{:keys [query-params]}]
                                            (http/ok query-params))}})))
-0        (sweet/GET "/" [] (resp/redirect "/index.html")))
+        (sweet/GET "/" [] (resp/redirect "/index.html")))
       (sweet/routes
         (route/resources "/")
         (route/not-found "404 Not Found"))))
