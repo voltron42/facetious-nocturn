@@ -1,2 +1,0 @@
-- name: Publish to Azure App Service
-  uses: EasyDesk/job-azure-publish-webapp@v0.1.0
