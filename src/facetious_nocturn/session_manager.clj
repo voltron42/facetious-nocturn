@@ -9,8 +9,7 @@
   (get-session [this host-ip])
   (post-session [this host-ip session])
   (get-guest [this guest-ip])
-  (post-guest [this guest-ip guest])
-  )
+  (post-guest [this guest-ip guest]))
 
 (defn- build-session-manager []
   (let [session-cache (atom {})
@@ -43,5 +42,3 @@
       (post-guest [this guest-ip guest]
         ; todo
         ))))
-
-(defonce singleton (build-session-manager))

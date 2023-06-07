@@ -19,16 +19,20 @@
    (s/optional-key :exited) s/Num
    :state s/Any})
 
+(s/defschema SessionId s/Str)
+
+(s/defschema GuestKey s/Str)
+
 (s/defschema UserData 
-  {:session-id s/Str
+  {:session-id SessionId
    :last-updated s/Num
    :guest Guest
    :context Context})
 
 (s/defschema Session 
-  {:id s/Str
+  {:id SessionId
    :key s/Str
    :last-updated s/Num
    :host Host
    :context Context
-   :guests {s/Str Guest}})
+   :guests {GuestKey Guest}})
