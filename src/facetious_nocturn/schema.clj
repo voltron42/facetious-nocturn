@@ -20,15 +20,15 @@
    :state s/Any})
 
 (s/defschema UserData 
-  {:session-id SessionId
+  {:session-id s/Str
    :last-updated s/Num
    :guest Guest
    :context Context})
 
 (s/defschema Session 
-  {:id SessionId
+  {:id s/Str
    :key s/Str
    :last-updated s/Num
    :host Host
    :context Context
-   :guests {GuestKey Guest}})
+   :guests {s/Str Guest}})
