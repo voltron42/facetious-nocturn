@@ -11,7 +11,7 @@
   (get-guest [this guest-ip])
   (post-guest [this guest-ip guest]))
 
-(defn- build-session-manager []
+(defn build-session-manager []
   (let [session-cache (atom {})
         session-key-map (atom {})]
     (reify ISessionManager
