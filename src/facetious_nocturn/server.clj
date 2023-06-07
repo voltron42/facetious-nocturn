@@ -86,7 +86,7 @@
                             :handler    default-handler}}))
           (api/context
             "/join/:session-key" []
-            :tags ["host"]
+            :tags ["guest"]
             (sweet/resource
              {:description ""
               :post         {:summary    ""
