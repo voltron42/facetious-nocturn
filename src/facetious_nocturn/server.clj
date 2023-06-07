@@ -1,5 +1,6 @@
 (ns facetious-nocturn.server
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :as pp]
             [compojure.api.sweet :as sweet]
             [compojure.api.core :as api]
             [compojure.route :as route]
@@ -9,15 +10,19 @@
             [org.httpkit.server :as server]
             [cheshire.core :as cheshire]
             [cheshire.custom :as cust]
+            [schema.core :as schema]
             [facetious-nocturn.schema :as s]
-            [facetious-nocturn.session-manager :as sm]
-            ))
+            [facetious-nocturn.session-manager :as sm]))
 
 (cust/add-encoder java.lang.Class
                   (fn [c jsonGenerator]
                     (.writeString jsonGenerator (-> c .getSimpleName))))
 
 (defonce session-manager (sm/build-session-manager))
+
+(defn default-handler [req]
+  (log/info (pp/pprint (:keys req)))
+  (http/ok (:keys req)))
 
 (defn build-app []
   (-> {:swagger
@@ -40,11 +45,7 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
-                            :handler    (fn [{:keys [body] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}}))
+                            :handler    default-handler}}))
           (api/context
             "/session/:session-id/kick/:guest-key" []
             :tags ["host"]
@@ -56,11 +57,7 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
-                            :handler    (fn [{:keys [route-params] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}}))
+                            :handler    default-handler}}))
           (api/context
             "/session/:session-id/close" []
             :tags ["host"]
@@ -71,11 +68,7 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
-                            :handler    (fn [{:keys [route-params] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}}))
+                            :handler    default-handler}}))
           (api/context
             "/session/:session-id/host-data" []
             :tags ["host"]
@@ -86,21 +79,13 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
-                            :handler    (fn [{:keys [body route-params] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}
+                            :handler    default-handler}
               :get         {:summary    ""
                             :parameters {:route-params {:session-id s/SessionId}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
-                            :handler    (fn [{:keys [route-params] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}}))
+                            :handler    default-handler}}))
           (api/context
             "/join/:session-key" []
             :tags ["host"]
@@ -112,11 +97,7 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}
-                            :handler    (fn [{:keys [body] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}}))
+                            :handler    default-handler}}))
 
           (api/context
             "/session/:session-id/leave" []
@@ -128,11 +109,7 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}
-                            :handler    (fn [{:keys [route-params] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}}))
+                            :handler    default-handler}}))
           (api/context
             "/session/:session-id/guest-data" []
             :tags ["guest"]
@@ -143,21 +120,13 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}
-                            :handler    (fn [{:keys [body route-params] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}
+                            :handler    default-handler}
               :get         {:summary    ""
                             :parameters {:route-params {:session-id s/SessionId}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}
-                            :handler    (fn [{:keys [route-params] :as req}]
-                                          (log/info (cheshire/generate-string
-                                                     (:keys req)
-                                                     {:pretty true}))
-                                          (http/ok (:keys req)))}})))
+                            :handler    default-handler}})))
         (sweet/GET "/" [] (resp/redirect "/index.html")))
       (sweet/routes
         (route/resources "/")
