@@ -21,6 +21,8 @@
 
 (s/defschema SessionId s/Str)
 
+(s/defschema SessionKey s/Str)
+
 (s/defschema GuestKey s/Str)
 
 (s/defschema UserData 
