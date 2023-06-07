@@ -27,6 +27,7 @@
 (defn build-app []
   (-> {:swagger
        {:ui   "/swagger/ui"
+        :spec "/swagger.json"
         :data {:info {:title       "Facetious Nocturn"
                       :description "Shared Session Server"}
                :tags [{:name "Host", :description "functions for the Session Host"}
