@@ -44,7 +44,7 @@
                             :parameters {:body s/Session}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/Session}
+                            :responses  {200 {:schema s/Session}}
                             :handler    default-handler}}))
           (api/context
             "/session/:session-id/kick/:guest-key" []
@@ -56,7 +56,7 @@
                                                         :guest-key schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/Session}
+                            :responses  {200 {:schema s/Session}}
                             :handler    default-handler}}))
           (api/context
             "/session/:session-id/close" []
@@ -65,9 +65,8 @@
              {:description ""
               :delete      {:summary    ""
                             :parameters {:route-params {:session-id schema/Str}}
-                            :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/Session}
+                            :responses  {200 {:schema s/Session}}
                             :handler    default-handler}}))
           (api/context
             "/session/:session-id/host-data" []
@@ -78,13 +77,12 @@
                             :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/Session}
+                            :responses  {200 {:schema s/Session}}
                             :handler    default-handler}
               :get         {:summary    ""
                             :parameters {:route-params {:session-id schema/Str}}
-                            :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/Session}
+                            :responses  {200 {:schema s/Session}}
                             :handler    default-handler}}))
           (api/context
             "/join/:session-key" []
@@ -96,7 +94,7 @@
                                          :route-params {:session-key schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/UserData}
+                            :responses  {200 {:schema s/UserData}}
                             :handler    default-handler}}))
 
           (api/context
@@ -108,7 +106,7 @@
                             :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/UserData}
+                            :responses  {200 {:schema s/UserData}}
                             :handler    default-handler}}))
           (api/context
             "/session/:session-id/guest-data" []
@@ -119,13 +117,13 @@
                             :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/UserData}
+                            :responses  {200 {:schema s/UserData}}
                             :handler    default-handler}
               :get         {:summary    ""
                             :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
-                            :responses  {200 s/UserData}
+                            :responses  {200 {:schema s/UserData}}
                             :handler    default-handler}})))
         (sweet/GET "/" [] (resp/redirect "/index.html")))
       (sweet/routes
