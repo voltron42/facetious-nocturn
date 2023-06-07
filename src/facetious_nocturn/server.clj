@@ -52,8 +52,8 @@
             (sweet/resource
              {:description ""
               :delete      {:summary    ""
-                            :parameters {:route-params {:session-id s/SessionId
-                                                        :guest-key s/GuestKey}}
+                            :parameters {:route-params {:session-id schema/Str
+                                                        :guest-key schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
@@ -64,7 +64,7 @@
             (sweet/resource
              {:description ""
               :delete      {:summary    ""
-                            :parameters {:route-params {:session-id s/SessionId}}
+                            :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
@@ -75,13 +75,13 @@
             (sweet/resource
              {:description ""
               :post        {:summary    ""
-                            :parameters {:route-params {:session-id s/SessionId}}
+                            :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
                             :handler    default-handler}
               :get         {:summary    ""
-                            :parameters {:route-params {:session-id s/SessionId}}
+                            :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/Session}
@@ -93,7 +93,7 @@
              {:description ""
               :post         {:summary    ""
                             :parameters {:body s/Guest
-                                         :route-params {:session-key s/SessionKey}}
+                                         :route-params {:session-key schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}
@@ -105,7 +105,7 @@
             (sweet/resource
              {:description ""
               :delete      {:summary    ""
-                            :parameters {:route-params {:session-id s/SessionId}}
+                            :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}
@@ -116,13 +116,13 @@
             (sweet/resource
              {:description ""
               :post        {:summary    ""
-                            :parameters {:route-params {:session-id s/SessionId}}
+                            :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}
                             :handler    default-handler}
               :get         {:summary    ""
-                            :parameters {:route-params {:session-id s/SessionId}}
+                            :parameters {:route-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 s/UserData}

@@ -19,12 +19,6 @@
    (s/optional-key :exited) s/Num
    :state s/Any})
 
-(s/defschema SessionId s/Str)
-
-(s/defschema SessionKey s/Str)
-
-(s/defschema GuestKey s/Str)
-
 (s/defschema UserData 
   {:session-id SessionId
    :last-updated s/Num
