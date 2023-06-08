@@ -1,28 +1,26 @@
 (ns facetious-nocturn.server
   (:require [clojure.tools.logging :as log]
-            [clojure.pprint :as pp]
-            [compojure.api.sweet :as sweet]
             [compojure.api.core :as api]
+            [compojure.api.sweet :as sweet]
             [compojure.route :as route]
-            [ring.util.response :as resp]
-            [ring.util.http-response :as http]
             [environ.core :refer [env]]
-            [org.httpkit.server :as server]
-            [cheshire.core :as cheshire]
-            [cheshire.custom :as cust]
-            [schema.core :as schema]
             [facetious-nocturn.schema :as s]
-            [facetious-nocturn.session-manager :as sm]))
-
-(cust/add-encoder java.lang.Class
-                  (fn [c jsonGenerator]
-                    (.writeString jsonGenerator (-> c .getSimpleName))))
+            [facetious-nocturn.session-manager :as sm]
+            [org.httpkit.server :as server]
+            [ring.util.http-response :as http]
+            [ring.util.response :as resp]
+            [schema.core :as schema])
+  (:import [java.util NoSuchElementException]))
 
 (defonce session-manager (sm/build-session-manager))
 
-(defn default-handler [req]
-  (log/info (pp/pprint (:keys req)))
-  (http/ok (:keys req)))
+(defn wrap-response [action]
+  (try
+    (http/ok (action))
+    (catch IllegalArgumentException e
+      (http/bad-request (.getMessage e)))
+    (catch NoSuchElementException e
+      (http/not-found (.getMessage e)))))
 
 (defn build-app []
   (-> {:swagger
@@ -45,45 +43,51 @@
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/Session}}
-                            :handler    default-handler}}))
+                            :handler    (fn [{:keys [remote-addr body]}]
+                                          (wrap-response #(sm/host session-manager remote-addr body)))}}))
           (api/context
             "/session/:session-id/kick/:guest-key" []
             :tags ["host"]
             (sweet/resource
              {:description ""
               :delete      {:summary    ""
-                            :parameters {:route-params {:session-id schema/Str
+                            :parameters {:path-params {:session-id schema/Str
                                                         :guest-key schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/Session}}
-                            :handler    default-handler}}))
+                            :handler    (fn [{{:keys [session-id guest-key]} :path-params host-ip :remote-addr}]
+                                          (wrap-response #(sm/kick session-manager session-id host-ip guest-key)))}}))
           (api/context
             "/session/:session-id/close" []
             :tags ["host"]
             (sweet/resource
              {:description ""
               :delete      {:summary    ""
-                            :parameters {:route-params {:session-id schema/Str}}
+                            :parameters {:path-params {:session-id schema/Str}}
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/Session}}
-                            :handler    default-handler}}))
+                            :handler    (fn [{{:keys [session-id]} :path-params host-ip :remote-addr}]
+                                          (wrap-response #(sm/close session-manager host-ip session-id)))}}))
           (api/context
             "/session/:session-id/host-data" []
             :tags ["host"]
             (sweet/resource
              {:description ""
               :post        {:summary    ""
-                            :parameters {:route-params {:session-id schema/Str}}
+                            :parameters {:path-params {:session-id schema/Str}
+                                         :body s/Session}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/Session}}
-                            :handler    default-handler}
+                            :handler    (fn [{{:keys [session-id]} :path-params session :body host-ip :remote-addr}]
+                                          (wrap-response #(sm/post-session session-manager session-id host-ip session)))}
               :get         {:summary    ""
-                            :parameters {:route-params {:session-id schema/Str}}
+                            :parameters {:path-params {:session-id schema/Str}}
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/Session}}
-                            :handler    default-handler}}))
+                            :handler    (fn [{{:keys [session-id]} :path-params host-ip :remote-addr}]
+                                          (wrap-response #(sm/get-session session-manager session-id host-ip)))}}))
           (api/context
             "/join/:session-key" []
             :tags ["guest"]
@@ -91,40 +95,44 @@
              {:description ""
               :post         {:summary    ""
                             :parameters {:body s/Guest
-                                         :route-params {:session-key schema/Str}}
+                                         :path-params {:session-key schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/UserData}}
-                            :handler    default-handler}}))
-
+                            :handler    (fn [{{:keys [session-key]} :path-params guest :body guest-ip :remote-addr}]
+                                          (wrap-response #(sm/join session-manager session-key guest-ip guest)))}}))
           (api/context
             "/session/:session-id/leave" []
             :tags ["guest"]
             (sweet/resource
              {:description ""
               :delete      {:summary    ""
-                            :parameters {:route-params {:session-id schema/Str}}
+                            :parameters {:path-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/UserData}}
-                            :handler    default-handler}}))
+                            :handler    (fn [{{:keys [session-id]} :path-params guest-ip :remote-addr}]
+                                          (wrap-response #(sm/leave session-manager session-id guest-ip)))}}))
           (api/context
             "/session/:session-id/guest-data" []
             :tags ["guest"]
             (sweet/resource
              {:description ""
               :post        {:summary    ""
-                            :parameters {:route-params {:session-id schema/Str}}
+                            :parameters {:path-params {:session-id schema/Str}
+                                         :body s/Guest}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/UserData}}
-                            :handler    default-handler}
+                            :handler    (fn [{{:keys [session-id]} :path-params user-data :body guest-ip :remote-addr}]
+                                          (wrap-response #(sm/post-user-data session-manager session-id guest-ip user-data)))}
               :get         {:summary    ""
-                            :parameters {:route-params {:session-id schema/Str}}
+                            :parameters {:path-params {:session-id schema/Str}}
                             :consumes   ["application/json"]
                             :produces   ["application/json"]
                             :responses  {200 {:schema s/UserData}}
-                            :handler    default-handler}})))
+                            :handler    (fn [{{:keys [session-id]} :path-params guest-ip :remote-addr}]
+                                          (wrap-response #(sm/get-guest session-manager session-id guest-ip)))}})))
         (sweet/GET "/" [] (resp/redirect "/index.html")))
       (sweet/routes
         (route/resources "/")

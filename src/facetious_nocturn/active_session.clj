@@ -1,38 +1,39 @@
 (ns facetious-nocturn.active-session
-  (:require [org.clojure/core.async :as async]))
+  (:require [org.clojure/core.async :as async]) 
+  (:import [clojure.lang IFn]))
 
 (defprotocol ActiveSession
+  (submit-request [this ^IFn action])
   (get-session [this])
-  (post-session [this session])
   (get-guest [this guest-key])
-  (post-guest [this guest-key guest])
   (close [this]))
 
-(defn build-worker [active-state session-atom action-chan]
+(defn build-worker [active-state session-atom action-chan is-closed?]
   (async/thread
     (while @active-state
-      (let []))))
+      (let [action (async/<!! action-chan)]
+        (swap! session-atom action)))
+    (reset! is-closed? true)))
 
 (defn build-active-session [init-session]
   (let [active-state (atom true)
         session-state (atom init-session)
-        action-channel (async/chan 200)]
-    (build-worker active-state session-state action-channel)
+        action-channel (async/chan 200)
+        is-closed? (atom false)]
+    (build-worker active-state session-state action-channel is-closed?)
     (reify ActiveSession
-      (get-session [this]
+      (submit-request [_ ^IFn action]
+        (async/>!! action-channel action))
+      (get-session [_]
         @session-state)
-      (post-session [this session]
-        ; todo
-        )
-      (get-guest [this guest-key]
+      (get-guest [_ guest-key]
         (let [{id :id context :context guests :guests} @session-state
               guest (get guests guest-key)]
           {:session-id id
            :last-modified (max (:last-modified context) (:last-modified guest))
            :guest guest
            :context context}))
-      (post-guest [this guest-key guest]
-        ; todo
-        )
-      (close [this]
-        (reset! active-state false)))))
+      (close [_]
+        (reset! active-state false)
+        (async/close! action-channel)
+        (while (not @is-closed?))))))
