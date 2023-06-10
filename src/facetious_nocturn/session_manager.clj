@@ -35,12 +35,6 @@
     (when (not= host-key (get-in session [:host :key]))
       (throw (IllegalArgumentException. host-ip)))))
 
-(defn- get-valid-guest [session guest-ip]
-  (let [guest (get-in session [:guests guest-ip])]
-    (if (nil? guest)
-      (throw (NoSuchElementException. guest-ip))
-      guest)))
-
 (defprotocol ISessionManager
   (host [this host-ip session])
   (join [this session-key guest-ip guest])
@@ -62,7 +56,8 @@
               last-updated (get-last-updated)
               new-session {:id session-id
                            :key session-key
-                           :host {:name-tag (-> session :host :name-tag)
+                           :host {:ip host-ip
+                                  :name-tag (-> session :host :name-tag)
                                   :key (build-guest-key host-ip)
                                   :state (-> session :host :state)
                                   :last-updated last-updated}
@@ -76,7 +71,8 @@
               session (get-active-session @session-cache session-id)
               last-updated (get-last-updated)
               guest-key (build-guest-key guest-ip)
-              new-guest {:key guest-key
+              new-guest {:ip guest-ip
+                         :key guest-key
                          :name-tag (:name-tag guest)
                          :last-updated last-updated
                          :joined last-updated
@@ -84,6 +80,7 @@
               
           (act/submit-request session #(update % :guests assoc guest-key new-guest))
           {:session-id session-id
+           :last-updated last-updated
            :guest new-guest
            :context (-> session (act/get-session) :context)}))
       (kick [_ session-id host-ip guest-key]
@@ -93,13 +90,9 @@
               (act/get-session session)))
       (leave [_ session-id guest-ip]
              (let [session (get-active-session @session-cache session-id)
-                   guest-key (build-guest-key guest-ip)
-                   guest (get-valid-guest session guest-key)
-                   {:keys [id context]} (act/get-session session)]
+                   guest-key (build-guest-key guest-ip)]
                (act/submit-request session #(update % :guests dissoc guest-key))
-               {:session-id id
-                :guest guest
-                :context context}))
+               (act/get-guest session guest-key)))
       (close [_ session-id host-ip]
              (let [active-session (get-active-session @session-cache session-id) 
                    _ (validate-host-ip active-session host-ip)
@@ -114,14 +107,8 @@
                      (act/get-session active-session)))
       (get-guest [_ session-id guest-ip]
                  (let [session (get-active-session @session-cache session-id)
-                       guest-key (build-guest-key guest-ip)
-                       guest (get-valid-guest session guest-key)
-                       last-updated (max (:last-updated guest) (get-in (act/get-session session) [:context :last-updated]))
-                       {:keys [id context]} (act/get-session session)]
-                   {:session-id id
-                    :last-updated last-updated
-                    :guest guest
-                    :context context}))
+                       guest-key (build-guest-key guest-ip)]
+                   (act/get-guest session guest-key)))
       (post-session [_ session-id host-ip new-state]
                     (let [active-session (get-active-session @session-cache session-id)
                          _ (validate-host-ip active-session host-ip)]
@@ -138,13 +125,12 @@
                       (act/get-session active-session)))
       (post-user-data [_ session-id guest-ip {new-guest :guest new-context :context}]
                   (let [session (get-active-session @session-cache session-id)
-                        guest-key (build-guest-key guest-ip)
-                        guest (get-valid-guest session guest-key)
-                        last-updated (max (:last-updated guest) (get-in (act/get-session session) [:context :last-updated]))]
+                        guest-key (build-guest-key guest-ip)]
                     (act/submit-request session
                                         (fn [old-state]
                                           (let [last-updated (get-last-updated)]
                                             (-> old-state
+                                                (assoc :last-updated last-updated)
                                                 (update-in [:guests guest-key] assoc
                                                            :last-updated last-updated
                                                            :name-tag (:name-tag new-guest)
@@ -153,8 +139,5 @@
                                                           :last-updated last-updated
                                                           :state (:state new-context))
                                                 ))))
-                    {:session-id session-id
-                     :last-updated last-updated
-                     :guest guest
-                     :context (:context (act/get-session session))})))))
+                    (act/get-guest session guest-key))))))
         

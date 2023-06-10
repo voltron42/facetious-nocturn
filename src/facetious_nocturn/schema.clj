@@ -7,16 +7,17 @@
 
 (s/defschema Host 
   {:ip [s/Num]
+   :key s/Str
    :name-tag s/Str
    :last-updated s/Num
    :state s/Any})
 
 (s/defschema Guest 
   {:ip [s/Num]
+   :key s/Str
    :name-tag s/Str
    :last-updated s/Num
    :joined s/Num
-   (s/optional-key :exited) s/Num
    :state s/Any})
 
 (s/defschema UserData 

@@ -1,9 +1,8 @@
-(ns facetious-nocturn.active-session
-  (:require [org.clojure/core.async :as async]) 
-  (:import [clojure.lang IFn]))
+(ns facetious-nocturn.active-session 
+  (:require [clojure.core.async :as async]))
 
 (defprotocol ActiveSession
-  (submit-request [this ^IFn action])
+  (submit-request [this action])
   (get-session [this])
   (get-guest [this guest-key])
   (close [this]))
@@ -22,7 +21,7 @@
         is-closed? (atom false)]
     (build-worker active-state session-state action-channel is-closed?)
     (reify ActiveSession
-      (submit-request [_ ^IFn action]
+      (submit-request [_ action]
         (async/>!! action-channel action))
       (get-session [_]
         @session-state)
