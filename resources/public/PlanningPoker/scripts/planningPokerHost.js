@@ -16,13 +16,13 @@ namespace('planningPoker.Host',{
             this.setState({ loading: true });
             HostService.host(this.state.hostNameTag, (session) => {
                 this.setState({ session, loading: false, hostNameTag: session.host.nameTag });
-                HostService.getData(session.id, (session) => {
+                this.stopPolling = HostService.getData(session.id, (session) => {
                     if(this.state.session.lastModified < session.lastModified) {
                         this.setState({ session, hostNameTag: session.host.nameTag });
                     }
                 }, (error) => {
                     this.setState({ error });
-                })
+                });
             }, (error) => {
                 this.setState({ error });
             });

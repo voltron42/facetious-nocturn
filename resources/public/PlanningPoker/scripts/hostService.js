@@ -32,7 +32,7 @@ namespace('planningPoker.HostService', {
         });
     };
     const getData = function(sessionId, setSession, onError) {
-        Ajax.poll("GET",`/api/v1/session/${sessionId}/host-data`, 500, {
+        return Ajax.poll("GET",`/api/v1/session/${sessionId}/host-data`, 500, {
             success:setSessionWrapper(setSession),
             failure:((error) => {
                 onError(error);
