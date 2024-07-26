@@ -33,7 +33,19 @@
           (api/context
             "/api/v1" []
             (api/context
-              "/host" []
+              "/host-new" []
+              :tags ["host"]
+              (sweet/resource
+                {:description ""
+                 :post        {:summary    ""
+                               :parameters {:body s/SessionConfig}
+                               :consumes   ["application/json"]
+                               :produces   ["application/json"]
+                               :responses  {200 {:schema s/Session}}
+                               :handler    (fn [{host-ip :remote-addr session-config :body}]
+                                             (wrap-response #(sm/host-new session-manager host-ip session-config)))}}))
+            (api/context
+              "/reopen-session" []
               :tags ["host"]
               (sweet/resource
                 {:description ""
@@ -42,23 +54,24 @@
                                :consumes   ["application/json"]
                                :produces   ["application/json"]
                                :responses  {200 {:schema s/Session}}
-                               :handler    (fn [{:keys [remote-addr body]}]
-                                             (wrap-response #(sm/host session-manager remote-addr body)))}}))
+                               :handler    (fn [{host-ip :remote-addr session :body}]
+                                             (wrap-response #(sm/reopen-session session-manager host-ip session)))}}))
             (api/context
-              "/session/:session-id/kick/:guest-key" []
+              "/session/:session-id/:host-id/kick/:guest-key" []
               :tags ["host"]
               (sweet/resource
                 {:description ""
                  :delete      {:summary    ""
                                :parameters {:path-params {:session-id schema/Str
+                                                          :host-id schema/Str
                                                           :guest-key schema/Str}}
                                :consumes   ["application/json"]
                                :produces   ["application/json"]
                                :responses  {200 {:schema s/Session}}
-                               :handler    (fn [{{:keys [session-id guest-key]} :path-params host-ip :remote-addr}]
-                                             (wrap-response #(sm/kick session-manager session-id host-ip guest-key)))}}))
+                               :handler    (fn [{{:keys [session-id host-id guest-key]} :path-params host-ip :remote-addr}]
+                                             (wrap-response #(sm/kick session-manager session-id host-id guest-key host-ip)))}}))
             (api/context
-              "/session/:session-id/close" []
+              "/session/:session-id/:host-id/close" []
               :tags ["host"]
               (sweet/resource
                 {:description ""
@@ -66,42 +79,67 @@
                                :parameters {:path-params {:session-id schema/Str}}
                                :produces   ["application/json"]
                                :responses  {200 {:schema s/Session}}
-                               :handler    (fn [{{:keys [session-id]} :path-params host-ip :remote-addr}]
-                                             (wrap-response #(sm/close session-manager host-ip session-id)))}}))
+                               :handler    (fn [{{:keys [session-id host-id]} :path-params host-ip :remote-addr}]
+                                             (wrap-response #(sm/close-session session-manager host-ip session-id host-id)))}}))
             (api/context
-              "/session/:session-id/host-data" []
+              "/session/:session-id/host/:host-id/" []
               :tags ["host"]
               (sweet/resource
                 {:description ""
-                 :post        {:summary    ""
-                               :parameters {:path-params {:session-id schema/Str}
-                                            :body s/Session}
-                               :consumes   ["application/json"]
-                               :produces   ["application/json"]
-                               :responses  {200 {:schema s/Session}}
-                               :handler    (fn [{{:keys [session-id]} :path-params session :body host-ip :remote-addr}]
-                                             (wrap-response #(sm/post-session session-manager session-id host-ip session)))}
+                 :put        {:summary    ""
+                              :parameters {:path-params {:session-id schema/Str}
+                                           :body s/SessionUpdate}
+                              :consumes   ["application/json"]
+                              :produces   ["application/json"]
+                              :responses  {200 {:schema s/HostState}}
+                              :handler    (fn [{{:keys [session-id host-id]} :path-params session-update :body host-ip :remote-addr}]
+                                            (wrap-response #(sm/update-session session-manager session-id host-id host-ip session-update)))}
                  :get         {:summary    ""
                                :parameters {:path-params {:session-id schema/Str}}
                                :produces   ["application/json"]
-                               :responses  {200 {:schema s/Session}}
-                               :handler    (fn [{{:keys [session-id]} :path-params host-ip :remote-addr}]
-                                             (wrap-response #(sm/get-session session-manager session-id host-ip)))}}))
+                               :responses  {200 {:schema s/HostState}}
+                               :handler    (fn [{{:keys [session-id host-id]} :path-params host-ip :remote-addr}]
+                                             (wrap-response #(sm/get-session session-manager session-id host-id host-ip)))}}))
             (api/context
-              "/join/:session-key" []
+              "/join-invited/:session-key/:guest-key" []
               :tags ["guest"]
               (sweet/resource
                 {:description ""
                  :post         {:summary    ""
-                                :parameters {:body s/Guest
+                                :parameters {:body s/InvitedGuest
                                              :path-params {:session-key schema/Str}}
                                 :consumes   ["application/json"]
                                 :produces   ["application/json"]
-                                :responses  {200 {:schema s/UserData}}
-                                :handler    (fn [{{:keys [session-key]} :path-params guest :body guest-ip :remote-addr}]
-                                              (wrap-response #(sm/join session-manager session-key guest-ip guest)))}}))
+                                :responses  {200 {:schema s/GuestData}}
+                                :handler    (fn [{{:keys [session-key guest-key]} :path-params guest :body guest-ip :remote-addr}]
+                                              (wrap-response #(sm/join-invited session-manager session-key guest-key guest-ip guest)))}}))
             (api/context
-              "/session/:session-id/leave" []
+              "/join-open/:session-key" []
+              :tags ["guest"]
+              (sweet/resource
+                {:description ""
+                 :post         {:summary    ""
+                                :parameters {:body s/NewGuest
+                                             :path-params {:session-key schema/Str}}
+                                :consumes   ["application/json"]
+                                :produces   ["application/json"]
+                                :responses  {200 {:schema s/GuestData}}
+                                :handler    (fn [{{:keys [session-key]} :path-params guest :body guest-ip :remote-addr}]
+                                              (wrap-response #(sm/join-open session-manager session-key guest-ip guest)))}}))
+            (api/context
+              "/rejoin/:session-key/:guest-key" []
+              :tags ["guest"]
+              (sweet/resource
+                {:description ""
+                 :post         {:summary    ""
+                                :parameters {:path-params {:session-key schema/Str}}
+                                :consumes   ["application/json"]
+                                :produces   ["application/json"]
+                                :responses  {200 {:schema s/GuestData}}
+                                :handler    (fn [{{:keys [session-key guest-key]} :path-params guest-ip :remote-addr}]
+                                              (wrap-response #(sm/rejoin session-manager session-key guest-key guest-ip)))}}))
+            (api/context
+              "/session/:session-id/leave/:guest-id" []
               :tags ["guest"]
               (sweet/resource
                 {:description ""
@@ -109,29 +147,29 @@
                                :parameters {:path-params {:session-id schema/Str}}
                                :consumes   ["application/json"]
                                :produces   ["application/json"]
-                               :responses  {200 {:schema s/UserData}}
+                               :responses  {200 {:schema s/GuestData}}
                                :handler    (fn [{{:keys [session-id]} :path-params guest-ip :remote-addr}]
                                              (wrap-response #(sm/leave session-manager session-id guest-ip)))}}))
             (api/context
-              "/session/:session-id/guest-data" []
+              "/session/:session-id/guest/:guest-id" []
               :tags ["guest"]
               (sweet/resource
                 {:description ""
-                 :post        {:summary    ""
+                 :put        {:summary    ""
                                :parameters {:path-params {:session-id schema/Str}
-                                            :body s/Guest}
+                                            :body s/GuestUpdate}
                                :consumes   ["application/json"]
                                :produces   ["application/json"]
-                               :responses  {200 {:schema s/UserData}}
-                               :handler    (fn [{{:keys [session-id]} :path-params user-data :body guest-ip :remote-addr}]
-                                             (wrap-response #(sm/post-user-data session-manager session-id guest-ip user-data)))}
+                               :responses  {200 {:schema s/GuestData}}
+                               :handler    (fn [{{:keys [session-id guest-id]} :path-params guest-update :body guest-ip :remote-addr}]
+                                             (wrap-response #(sm/update-guest session-manager session-id guest-id guest-ip guest-update)))}
                  :get         {:summary    ""
                                :parameters {:path-params {:session-id schema/Str}}
                                :consumes   ["application/json"]
                                :produces   ["application/json"]
-                               :responses  {200 {:schema s/UserData}}
-                               :handler    (fn [{{:keys [session-id]} :path-params guest-ip :remote-addr}]
-                                             (wrap-response #(sm/get-guest session-manager session-id guest-ip)))}})))
+                               :responses  {200 {:schema s/GuestData}}
+                               :handler    (fn [{{:keys [session-id guest-id]} :path-params guest-ip :remote-addr}]
+                                             (wrap-response #(sm/get-guest session-manager session-id guest-id guest-ip)))}})))
           (sweet/GET "/" [] (resp/redirect "/index.html")))
         (sweet/routes
           (route/resources "/")

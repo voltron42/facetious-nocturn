@@ -1,20 +1,21 @@
 (ns facetious-nocturn.session-manager
   (:require [clj-time.core :as t]
             [facetious-nocturn.active-session :as act]
-            [clojure.core.async :as async])
+            [clojure.core.async :as async]
+            [org.sqids.clojure :as sqids]
+            [clj-time.coerce :as c])
   (:import [java.util NoSuchElementException]))
 
-(defn- build-session-id [ip-address]
-  ; todo
-  (str ip-address))
+(defn- build-session-id [_]
+  (random-uuid))
+
+(def ^:private sqids (sqids/sqids))
 
 (defn- build-session-key [ip-address]
-  ; todo
-  (str ip-address))
+  (sqids/encode sqids (conj ip-address (c/to-long (t/now)))))
 
 (defn- build-guest-key [ip-address]
-  ; todo
-  (str ip-address))
+  (sqids/encode sqids (conj ip-address (c/to-long (t/now)))))
 
 (defn- get-last-updated []
   (t/in-millis (t/interval (t/date-time 1970 1 1) (t/now))))
@@ -37,17 +38,20 @@
       (throw (IllegalArgumentException. ^String host-ip)))))
 
 (defprotocol ISessionManager
-  (host [this host-ip session])
-  (join [this session-key guest-ip guest])
-  (kick [this session-id host-ip guest-key])
+  (host-new [this host-ip session-config])
+  (reopen-session [this host-ip session])
+  (kick [this session-id host-id host-ip guest-key])
+  (close-session [this session-id host-id host-ip])
+  (update-session [this session-id host-id host-ip session-update])
+  (get-session [this session-id host-id host-ip])
+  (join-invited [this session-key guest-key guest-ip guest])
+  (join-open [this session-key guest-ip guest])
+  (rejoin [this session-key guest-key guest-ip])
   (leave [this session-id guest-ip])
-  (close [this session-id host-ip])
-  (get-session [this session-id host-ip])
-  (post-session [this session-id host-ip session])
-  (get-guest [this session-id guest-ip])
-  (post-user-data [this session-id guest-ip guest]))
+  (update-guest [this session-id guest-id guest-ip guest])
+  (get-guest [this session-id guest-id guest-ip]))
 
-(defn update-guest [old-guest new-guest last-updated]
+(defn update-to-guest [old-guest new-guest last-updated]
   (let [new-guest (or new-guest {})]
     (assoc old-guest
       :last-updated last-updated
@@ -135,12 +139,12 @@
                                           (fn [old-state]
                                             (let [last-updated (get-last-updated)]
                                               (-> old-state
-                                                  (update :host update-guest (:host new-state) last-updated)
+                                                  (update :host update-to-guest (:host new-state) last-updated)
                                                   (update :guests
                                                           (fn [old-guests]
                                                             (let [new-guests (:guests new-state)]
                                                               (reduce-kv
-                                                                #(assoc %1 %2 update-guest %3 (get new-guests %2 {}) last-updated)
+                                                                #(assoc %1 %2 (update-to-guest %3 (get new-guests %2 {}) last-updated))
                                                                 old-guests
                                                                 {}))))
                                                   (update :context assoc
