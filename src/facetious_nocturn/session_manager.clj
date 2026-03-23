@@ -1,170 +1,63 @@
 (ns facetious-nocturn.session-manager
-  (:require [clj-time.core :as t]
-            [facetious-nocturn.active-session :as act]
-            [clojure.core.async :as async]
-            [org.sqids.clojure :as sqids]
-            [clj-time.coerce :as c])
-  (:import [java.util NoSuchElementException]))
+  (:require [facetious-nocturn.session :as session]))
 
-(defn- build-session-id [_]
-  (random-uuid))
+(defprotocol SessionManager
+  (host [this initial-host-data initial-common-data])
+  (join [this session-id init-data])
+  (leave [this session-id guest-id])
+  (kick [this session-id host-id guest-id])
+  (get-for-host [this session-id host-id])
+  (get-for-guest [this session-id guest-id])
+  (get-common-data [this session-id])
+  (update-host [this session-id host-id updates])
+  (update-guest [this session-id guest-id updates])
+  (close [this session-id host-id]))
 
-(def ^:private sqids (sqids/sqids))
-
-(defn- build-session-key [ip-address]
-  (sqids/encode sqids (conj ip-address (c/to-long (t/now)))))
-
-(defn- build-guest-key [ip-address]
-  (sqids/encode sqids (conj ip-address (c/to-long (t/now)))))
-
-(defn- get-last-updated []
-  (t/in-millis (t/interval (t/date-time 1970 1 1) (t/now))))
-
-(defn- get-active-session [session-cache session-id]
-  (let [session (get session-cache session-id)]
-    (if (nil? session)
-      (throw (NoSuchElementException. session-id))
-      session)))
-
-(defn- get-session-id [session-key-map session-key]
-  (let [session-id (get session-key-map session-key)]
-    (if (nil? session-id)
-      (throw (NoSuchElementException. session-key))
-      session-id)))
-
-(defn- validate-host-ip [session host-ip]
-  (let [host-key (build-guest-key host-ip)]
-    (when (not= host-key (get-in session [:host :key]))
-      (throw (IllegalArgumentException. ^String host-ip)))))
-
-(defprotocol ISessionManager
-  (host-new [this host-ip session-config])
-  (reopen-session [this host-ip session])
-  (kick [this session-id host-id host-ip guest-key])
-  (close-session [this session-id host-id host-ip])
-  (update-session [this session-id host-id host-ip session-update])
-  (get-session [this session-id host-id host-ip])
-  (join-invited [this session-key guest-key guest-ip guest])
-  (join-open [this session-key guest-ip guest])
-  (rejoin [this session-key guest-key guest-ip])
-  (leave [this session-id guest-ip])
-  (update-guest [this session-id guest-id guest-ip guest])
-  (get-guest [this session-id guest-id guest-ip]))
-
-(defn update-to-guest [old-guest new-guest last-updated]
-  (let [new-guest (or new-guest {})]
-    (assoc old-guest
-      :last-updated last-updated
-      :name-tag (get new-guest :name-tag (:name-tag old-guest))
-      :state (get new-guest :state (:state old-guest)))))
-
-(defn build-session-manager []
-  (let [session-cache (atom {})
-        session-key-map (atom {})
-        session-open-close-channel (async/chan 200)]
-    (async/thread
-      (while true
-        (let [action (async/<!! session-open-close-channel)]
-          (action))))
-    (reify ISessionManager
-      (host [_ host-ip session]
-        (let [session-id (build-session-id host-ip)
-              session-key (build-session-key host-ip)
-              last-updated (get-last-updated)
-              new-session {:id session-id
-                           :key session-key
-                           :host {:ip host-ip
-                                  :name-tag (-> session :host :name-tag)
-                                  :key (build-guest-key host-ip)
-                                  :state (-> session :host :state)
-                                  :last-updated last-updated}
-                           :context {:state (-> session :context :state)
-                                     :last-updated last-updated}}
-              active-session (act/build-active-session new-session)]
-          (async/>!!
-            session-open-close-channel
-            #(do
-               (swap! session-cache assoc session-id active-session)
-               (swap! session-key-map assoc session-key session-id)))
-          new-session))
-      (join [_ session-key guest-ip guest]
-        (let [session-id (get-session-id @session-key-map session-key)
-              session (get-active-session @session-cache session-id)
-              last-updated (get-last-updated)
-              guest-key (build-guest-key guest-ip)
-              new-guest {:ip guest-ip
-                         :key guest-key
-                         :name-tag (:name-tag guest)
-                         :last-updated last-updated
-                         :joined last-updated
-                         :state (:state guest)}]
-          (act/submit-request session #(update % :guests assoc guest-key new-guest))
-          {:session-id session-id
-           :last-updated last-updated
-           :guest new-guest
-           :context (-> session (act/get-session) :context)}))
-      (kick [_ session-id host-ip guest-key]
-            (let [session (get-active-session @session-cache session-id) 
-                  _ (validate-host-ip session host-ip)]
-              (act/submit-request session #(update % :guests dissoc guest-key))
-              (act/get-session session)))
-      (leave [_ session-id guest-ip]
-             (let [session (get-active-session @session-cache session-id)
-                   guest-key (build-guest-key guest-ip)]
-               (act/submit-request session #(update % :guests dissoc guest-key))
-               (act/get-guest session guest-key)))
-      (close [_ session-id host-ip]
-             (let [active-session (get-active-session @session-cache session-id) 
-                   _ (validate-host-ip active-session host-ip)
-                   session (act/get-session active-session)]
-               (act/close active-session)
-               (async/>!!
-                 session-open-close-channel
-                 #(do
-                    (swap! session-cache dissoc session-id)
-                    (swap! session-key-map (:key session))))
-               session))
-      (get-session [_ session-id host-ip]
-                   (let [active-session (get-active-session @session-cache session-id)
-                         _ (validate-host-ip active-session host-ip)]
-                     (act/get-session active-session)))
-      (get-guest [_ session-id guest-ip]
-                 (let [session (get-active-session @session-cache session-id)
-                       guest-key (build-guest-key guest-ip)]
-                   (act/get-guest session guest-key)))
-      (post-session [_ session-id host-ip new-state]
-                    (let [active-session (get-active-session @session-cache session-id)
-                         _ (validate-host-ip active-session host-ip)]
-                      (act/submit-request active-session
-                                          (fn [old-state]
-                                            (let [last-updated (get-last-updated)]
-                                              (-> old-state
-                                                  (update :host update-to-guest (:host new-state) last-updated)
-                                                  (update :guests
-                                                          (fn [old-guests]
-                                                            (let [new-guests (:guests new-state)]
-                                                              (reduce-kv
-                                                                #(assoc %1 %2 (update-to-guest %3 (get new-guests %2 {}) last-updated))
-                                                                old-guests
-                                                                {}))))
-                                                  (update :context assoc
-                                                          :last-updated last-updated
-                                                          :state (get-in new-state [:context :state]))))))
-                      (act/get-session active-session)))
-      (post-user-data [_ session-id guest-ip {new-guest :guest new-context :context}]
-                  (let [session (get-active-session @session-cache session-id)
-                        guest-key (build-guest-key guest-ip)]
-                    (act/submit-request session
-                                        (fn [old-state]
-                                          (let [last-updated (get-last-updated)]
-                                            (-> old-state
-                                                (assoc :last-updated last-updated)
-                                                (update-in [:guests guest-key] assoc
-                                                           :last-updated last-updated
-                                                           :name-tag (:name-tag new-guest)
-                                                           :state (:state new-guest))
-                                                (update :context assoc 
-                                                          :last-updated last-updated
-                                                          :state (:state new-context))))))
-                    (act/get-guest session guest-key))))))
-        
+(defn create-session-manager []
+  (let [sessions (atom {})]
+    (reify SessionManager
+      (host [_ initial-host-data initial-common-data]
+        (let [session-id (str (java.util.UUID/randomUUID))
+              host-id (str (java.util.UUID/randomUUID))
+              session (session/create-session host-id {:host-data initial-host-data
+                                                         :common-data initial-common-data})]
+          (swap! sessions assoc session-id session)
+          {:session-id session-id :host-id host-id}))
+      (join [_ session-id init-data]
+        (if-let [session (@sessions session-id)]
+          (session/join session init-data)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (leave [_ session-id guest-id]
+        (if-let [session (@sessions session-id)]
+          (session/leave session guest-id)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (kick [_ session-id host-id guest-id]
+        (if-let [session (@sessions session-id)]
+          (session/kick session host-id guest-id)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (get-for-host [_ session-id host-id]
+        (if-let [session (@sessions session-id)]
+          (session/get-for-host session host-id)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (get-for-guest [_ session-id guest-id]
+        (if-let [session (@sessions session-id)]
+          (session/get-for-guest session guest-id)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (get-common-data [_ session-id]
+        (if-let [session (@sessions session-id)]
+          (session/get-common-data session)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (update-host [_ session-id host-id updates]
+        (if-let [session (@sessions session-id)]
+          (session/update-host session host-id updates)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (update-guest [_ session-id guest-id updates]
+        (if-let [session (@sessions session-id)]
+          (session/update-guest session guest-id updates)
+          (throw (ex-info "Session not found" {:type :not-found}))))
+      (close [_ session_id host_id]
+             (if-let [session (@sessions session_id)]
+               (do
+                 (session/close session host_id)
+                 (swap! sessions dissoc session_id))
+               (throw (ex-info "Session not found" {:type :not-found})))))))
