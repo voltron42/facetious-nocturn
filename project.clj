@@ -6,7 +6,9 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [ring/ring-jetty-adapter "1.15.3"]
                  [metosin/reitit "0.7.2"]
-                 [ring/ring-json "0.5.1"]]
+                 [ring/ring-json "0.5.1"]
+                 [org.clojure/core.async "1.7.701"]
+                 [org.clojure/data.json "2.5.1"]]
   :main ^:skip-aot facetious-nocturn.server
   :target-path "target/%s"
   :uberjar-name "facetious-nocturn"

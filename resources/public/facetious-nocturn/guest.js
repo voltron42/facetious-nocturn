@@ -14,14 +14,14 @@ namespace("facetious-nocturn.Guest", {
       const payload = {};
       if (data.guestData !== undefined) payload.guestData = data.guestData;
       if (data.commonData !== undefined) payload.commonData = data.commonData;
-      Ajax.put(`${Constants.API_BASE}/sessions/${sessionId}/guest/${guestId}`, payload, Callbacks(onSuccess, onError));
+      Ajax.put(`${Constants.API_BASE}/sessions/${sessionId}/guest/${guestId}`, JSON.stringify(payload), Callbacks(onSuccess, onError));
     };
     this.leave = function(onSuccess) {
       Ajax.delete(`${Constants.API_BASE}/sessions/${sessionId}/guest/${guestId}/leave`, Callbacks(onSuccess));
     };
   };
   const joinSession = function(sessionId, initialData, onSuccess) {
-    Ajax.post(`${Constants.API_BASE}/sessions/${sessionId}/join`, {initialData: initialData}, Callbacks(onSuccess));
+    Ajax.post(`${Constants.API_BASE}/sessions/${sessionId}/join`, JSON.stringify({initialData: initialData}), Callbacks(onSuccess));
   };
   const init = function(sessionId, guestId) {
     return new Guest(sessionId, guestId);

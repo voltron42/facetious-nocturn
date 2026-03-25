@@ -2,6 +2,7 @@
   (:require [facetious-nocturn.session :as session]))
 
 (defprotocol SessionManager
+  (heartbeat [this])
   (host [this initial-host-data initial-common-data])
   (join [this session-id init-data])
   (leave [this session-id guest-id])
@@ -16,6 +17,8 @@
 (defn create-session-manager []
   (let [sessions (atom {})]
     (reify SessionManager
+      (heartbeat [_]
+        (mapv (fn [[_ session]] (session/pulse session)) @sessions))
       (host [_ initial-host-data initial-common-data]
         (let [session-id (str (java.util.UUID/randomUUID))
               host-id (str (java.util.UUID/randomUUID))

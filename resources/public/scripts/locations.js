@@ -1,4 +1,4 @@
-namespace("spyglass.Locations", {}, () => {
+namespace("spyfall.Locations", {}, () => {
   const locations = {
     "Airplane": [
       "First Class Passenger",

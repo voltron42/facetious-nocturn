@@ -2,7 +2,7 @@ namespace("spyfall.Results", {}, () => {
   return function(props) {
     const latestGame = props.history[props.history.length - 1];
     const voteCounts = Object.entries(latestGame.voteCounts);
-    voteCounts.sort(([_, countA], [_, countB]) => countB - countA);
+    voteCounts.sort(([$, countA], [$$, countB]) => countB - countA);
     return (<div className="d-flex flex-column align-items-center justify-content-center h-100">
       <h1 className="mb-4">Game Results</h1>
       <h1 className="mb-4">{latestGame.result}</h1>

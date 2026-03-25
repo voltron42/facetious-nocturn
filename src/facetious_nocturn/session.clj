@@ -4,6 +4,7 @@
   (:import [java.util Date]))
 
 (defprotocol Session
+  (pulse [this])
   (join [this init-data])
   (leave [this guest-id])
   (kick [this host-id guest-id])
@@ -46,43 +47,58 @@
                      :guests {}
                      :created-at (Date.)
                      :is-open true})
-        actions (async/chan 200)]
+        actions (async/chan 200)
+        queue-count (atom 0)
+        dequeue (fn []
+                  (let [action (async/<!! actions)]
+                    (swap! queue-count dec)
+                    action))
+        enqueue (fn [& action]
+                  (swap! queue-count inc)
+                  (async/>!! actions action)
+                  nil)]
     (async/thread
       (while (:is-open @state)
-        (let [action (async/<!! actions)]
-          (reset! state (apply update-session action)))))
+        (reset! state (apply update-session (dequeue)))))
     (reify Session
+      (pulse [_]
+        {:last-updated (:last-updated @state)
+         :queue-count @queue-count})
       (join [_ init-data]
         (let [guest-id (str (java.util.UUID/randomUUID))]
-          (async/>!! actions [:join @state guest-id init-data])
+          (enqueue :join @state guest-id init-data)
           guest-id))
       (leave [_ guest-id]
-        (async/>!! actions [:leave @state guest-id]))
+        (enqueue :leave @state guest-id)
+        {:date-queued (Date.)})
       (kick [_ host-id guest-id]
         (when-not (= host-id session-host-id)
           (throw (ex-info "Only the host can kick guests" {:type :access-denied})))
-        (async/>!! actions [:leave @state guest-id]))
+        (enqueue :leave @state guest-id)
+        {:date-queued (Date.)})
       (get-for-host [_ host-id]
         (when-not (= host-id session-host-id)
           (throw (ex-info "Only the host can access host data" {:type :access-denied})))
-        (select-keys @state [:host-data :common-data :guests]))
+        (select-keys @state [:host-data :common-data :guests :last-updated :created-on]))
       (get-for-guest [_ guest-id]
         (when-not (contains? (:guests @state) guest-id)
           (throw (ex-info "Guest not found" {:type :not-found})))
         (let [guest-data (get-in @state [:guests guest-id])]
           (when-not guest-data
             (throw (ex-info "Guest not found" {:type :not-found})))
-          {:guest-data guest-data
-           :common-data (:common-data @state)}))
+          (assoc (select-keys @state [:common-data :last-updated :created-on]) :guest-data guest-data)))
       (get-common-data [_]
-        {:common-data (:common-data @state)})
+        (select-keys  @state [:common-data :last-updated :created-on]))
       (update-host [_ host-id {:keys [host-data common-data]}]
         (when-not (= host-id session-host-id)
           (throw (ex-info "Only the host can update host data" {:type :access-denied})))
-        (async/>!! actions [:update-host @state host-data common-data]))
+        (enqueue :update-host @state host-data common-data)
+        {:date-queued (Date.)})
       (update-guest [_ guest-id {:keys [guest-data]}]
-        (async/>!! actions [:update-guest @state guest-id guest-data]))
+        (enqueue :update-guest @state guest-id guest-data)
+        {:date-queued (Date.)})
       (close [_ host-id]
         (when-not (= host-id session-host-id)
           (throw (ex-info "Only the host can close the session" {:type :access-denied})))
-        (async/>!! actions [:close @state])))))
+        (enqueue :close @state)
+        @state))))

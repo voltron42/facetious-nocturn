@@ -4,7 +4,7 @@ namespace("facetious-nocturn.Session", {
   "facetious-nocturn.Constants": "Constants"
 }, ({ Ajax, Callbacks, Constants }) => {
   const getCommonData = function(sessionId, onSuccess, onError) {
-    Ajax.get(`${Constants.API_BASE}/sessions/${sessionId}/common`, Callbacks(onSuccess, onError));
+    Ajax.get(`${Constants.API_BASE}/sessions/${sessionId}`, Callbacks(onSuccess, onError));
   };
   return { getCommonData };
 })

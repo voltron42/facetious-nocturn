@@ -14,7 +14,7 @@ namespace("facetious-nocturn.Host", {
       const payload = {};
       if (data.hostData !== undefined) payload.hostData = data.hostData;
       if (data.commonData !== undefined) payload.commonData = data.commonData;
-      Ajax.put(`${Constants.API_BASE}/sessions/${sessionId}/${hostId}`, payload, Callbacks(onSuccess));
+      Ajax.put(`${Constants.API_BASE}/sessions/${sessionId}/${hostId}`, JSON.stringify(payload), Callbacks(onSuccess));
     };
     this.kick = function(guestId, onSuccess) {
       Ajax.delete(`${Constants.API_BASE}/sessions/${sessionId}/${hostId}/kick/${guestId}`, Callbacks(onSuccess));
@@ -27,7 +27,7 @@ namespace("facetious-nocturn.Host", {
     const payload = {};
     if (initialHostData !== undefined) payload.initialHostData = initialHostData;
     if (initialCommonData !== undefined) payload.initialCommonData = initialCommonData;
-    Ajax.post(`${Constants.API_BASE}/sessions/host`, payload, Callbacks(onSuccess));
+    Ajax.post(`${Constants.API_BASE}/sessions/host`, JSON.stringify(payload), Callbacks(onSuccess));
   };
   const init = function(sessionId, hostId) {
     return new Host(sessionId, hostId);

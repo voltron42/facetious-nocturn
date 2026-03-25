@@ -1,0 +1,30 @@
+{
+  "hostData": {
+    "name": "string"
+  },
+  "commonData": {
+    "playerNames": { "string": ["string", false] },
+    "locations": ["string"],
+    "history": [
+      {
+        "name": "string",
+        "location": "string",
+        "vote": "string"
+      }
+    ],
+    "countdown": {
+      "expired": "boolean"
+    },
+    "votes": { "string": "string" },
+    "roles": { "string": "string" },
+    "newGameConfirms": { "string": "boolean" },
+    "chosenLocation": "string"
+  },
+  "guestData": {
+    "name": "string",
+    "chosenLocation": "string",
+    "vote": "string",
+    "newGameConfirm": "boolean",
+    "myChosenLocation": "string"
+  }
+}

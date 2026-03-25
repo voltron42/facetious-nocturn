@@ -127,7 +127,7 @@ namespace("spyfall.SpyfallGuest", {
       });
     }
     selectPlayerName(name) {
-      this.state.guest.update({ hostData: { name }}, () => {
+      this.state.guest.update({ guestData: { name }}, () => {
         // update queued, do nothing until next poll
       }, () => this.error());
       const playerNames = Object.entries(this.state.playerNames).reduce((acc, [playerName, state]) => {
@@ -138,25 +138,25 @@ namespace("spyfall.SpyfallGuest", {
       this.setState({ playerNames, name });
     }
     selectLocation(location) {
-      this.state.guest.update({ hostData:{ chosenLocation: location }}, () => {
+      this.state.guest.update({ guestData:{ name: this.state.name, chosenLocation: location }}, () => {
         // update queued, do nothing until next poll
       }, () => this.error());
       this.setState({ chosenLocation: location, myChosenLocation: location });
     }
     vote(name) {
-      this.state.guest.update({ hostData: { vote: name }}, () => {
+      this.state.guest.update({ guestData: { name: this.state.name, vote: name }}, () => {
         // update queued, do nothing until next poll
       }, () => this.error());
       this.setState({ vote: name });
     }
     playAgain() {
-      this.state.guest.update({ hostData: { newGameConfirm: true }}, () => {
+      this.state.guest.update({ guestData: { name: this.state.name, newGameConfirm: true }}, () => {
         // update queued, do nothing until next poll
       }, () => this.error());
       this.setState({ newGameConfirm: true });
     }
     quit() {
-      this.state.host.close(() => this.setState({ screen: "quit" }));
+      this.state.guest.quit(() => this.setState({ screen: "quit" }));
       this.setState({ screen: "quit" });
     }
     error() {
@@ -175,7 +175,7 @@ namespace("spyfall.SpyfallGuest", {
             <h3 className="mb-4">Host: {this.state.hostName}</h3>
             <h3 className="mb-4">Current Players:</h3>
             <ul className="mb-4">
-              {Object.entries(this.state.playerNames).map(([name, state]) => <li key={name}>{name}{confirmIcon(state)}</li>) }
+              {Object.entries(this.state.playerNames).map(([name, state]) => <li key={name}>{name}{confirmIcon(this.state.guestId, state)}</li>) }
             </ul>
             <button className="btn btn-primary" onClick={() => this.enterLobby()}>Join Game</button>
           </div>);
