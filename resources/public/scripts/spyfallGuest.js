@@ -96,22 +96,24 @@ namespace("spyfall.SpyfallGuest", {
       Guest.joinSession(this.state.sessionId, {}, ({ guestId }) => {
         const guest = new Guest(this.state.sessionId, guestId);
         this.setState({
+          joining: undefined,
           screen: "lobby",
           guestId: guestId,
           guest: guest,
           endLobbyPoll: guest.poll(({ commonData }) => {
-            const playerNames = Object.entries(commonData.playerNames).reduce((acc, [name, state]) => {
+            const guestNames = Object.entries(commonData.guestNames).reduce((acc, [name, state]) => {
               acc[name] = state;
               return acc;
             }, {});
             if (this.state.name) {
-              playerNames[this.state.name] = this.state.guestId;
+              guestNames[this.state.name] = this.state.guestId;
             }
-            const availableCount = Object.values(playerNames).filter(state => !state).length;
+            const availableCount = Object.values(guestNames).filter(state => !state).length;
             if (availableCount == 0) {
               this.state.endLobbyPoll();
               this.setState({
                 screen: "discussion",
+                playerNames: commonData.playerNames,
                 countdown: commonData.countdown,
                 location: commonData.location,
                 role: commonData.roles[guestId],
@@ -120,22 +122,23 @@ namespace("spyfall.SpyfallGuest", {
                 endDiscussionPoll: this.state.guest.poll(({ commonData }) => this.endDiscussionPoll(commonData), () => this.error())
               });
             } else {
-              this.setState({ playerNames });
+              this.setState({ playerNames: guestNames });
             }
           }, () => this.error())
         });
       });
+      this.setState({ joining: true });
     }
-    selectPlayerName(name) {
+    selectGuestName(name) {
       this.state.guest.update({ guestData: { name }}, () => {
         // update queued, do nothing until next poll
       }, () => this.error());
-      const playerNames = Object.entries(this.state.playerNames).reduce((acc, [playerName, state]) => {
-        acc[playerName] = state;
+      const guestNames = Object.entries(this.state.guestNames).reduce((acc, [guestName, state]) => {
+        acc[guestName] = state;
         return acc;
       }, {});
-      playerNames[name] = this.state.guestId;
-      this.setState({ playerNames, name });
+      guestNames[name] = this.state.guestId;
+      this.setState({ guestNames, name });
     }
     selectLocation(location) {
       this.state.guest.update({ guestData:{ name: this.state.name, chosenLocation: location }}, () => {
@@ -175,9 +178,9 @@ namespace("spyfall.SpyfallGuest", {
             <h3 className="mb-4">Host: {this.state.hostName}</h3>
             <h3 className="mb-4">Current Players:</h3>
             <ul className="mb-4">
-              {Object.entries(this.state.playerNames).map(([name, state]) => <li key={name}>{name}{confirmIcon(this.state.guestId, state)}</li>) }
+              {Object.entries(this.state.guestNames).map(([name, state]) => <li key={name}>{name}{confirmIcon(this.state.guestId, state)}</li>) }
             </ul>
-            <button className="btn btn-primary" onClick={() => this.enterLobby()}>Join Game</button>
+            { this.state.joining ? <h3>Joining the session ...</h3> : <button className="btn btn-primary" onClick={() => this.enterLobby()}>Join Game</button> }
           </div>);
         case "lobby":
           return (<div className="d-flex flex-column align-items-center justify-content-center h-100">
@@ -185,11 +188,11 @@ namespace("spyfall.SpyfallGuest", {
             <h3 className="mb-4">Host: {this.state.hostName}</h3>
             <h3 className="mb-4">Current Players:</h3>
             <ul className="mb-4">
-              {Object.entries(this.state.playerNames).map(([name, state]) => {
-                if (state) {
-                  return <li key={name}>{name}{confirmIcon(state)}</li>
+              {Object.entries(this.state.guestNames).map(([name, state]) => {
+                if (state || this.state.guestNames[this.state.name] == this.state.guestId) {
+                  return <li key={name}>{name}{confirmIcon(this.state.guestId,state)}</li>
                 } else {
-                  return <li key={name}><button className="btn btn-outline-primary" onClick={() => this.selectPlayerName(name)}>{name}</button></li>;
+                  return <li key={name}><button className="btn btn-outline-primary" onClick={() => this.selectGuestName(name)}>{name}</button></li>;
                 }
               }) }
             </ul>

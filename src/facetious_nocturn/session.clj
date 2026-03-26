@@ -1,7 +1,9 @@
 (ns facetious-nocturn.session
   (:require
-   [clojure.core.async :as async])
-  (:import [java.util Date]))
+   [clojure.core.async :as async]
+   [clojure.pprint :as pp])
+  (:import
+   [java.util Date]))
 
 (defprotocol Session
   (pulse [this])
@@ -21,25 +23,30 @@
   (assoc-in state [:guests guest-id] init-data))
 
 (defmethod update-session :leave [_ state guest-id]
-  (when-not (contains? (:guests @state) guest-id)
+  (when-not (contains? (:guests state) guest-id)
     (throw (ex-info "Guest not found" {:type :not-found})))
   (update-in state [:guests] dissoc guest-id))
 
 (defmethod update-session :update-guest [_ state guest-id guest-data]
-  (when-not (contains? (:guests @state) guest-id)
+  (when-not (contains? (:guests state) guest-id)
     (throw (ex-info "Guest not found" {:type :not-found})))
   (-> state
-      (assoc-in [:guests guest-id] guest-data)
+      (assoc-in [:guests guest-id :from-guest] guest-data)
       (assoc :last-updated (Date.))))
 
-(defmethod update-session :update-host [_ state host-data common-data]
+(defmethod update-session :update-host [_ state host-data common-data to-guests]
+  (pp/pprint {:host-data host-data :common-data common-data :to-guests to-guests :guests (:guests state)})
   (-> state
       (assoc :host-data host-data)
       (assoc :common-data common-data)
+      (assoc :guests (reduce-kv #(update %1 %2 assoc :to-guest %3) (:guests state) to-guests))
       (assoc :last-updated (Date.))))
 
 (defmethod update-session :close [_ state]
   (assoc state :is-open false))
+
+(defmethod update-session :default [& args]
+  (pp/pprint {:update-session-default args}))
 
 (defn create-session [session-host-id {:keys [initial-host-data initial-common-data]}]
   (let [state (atom {:host-data initial-host-data
@@ -51,9 +58,11 @@
         queue-count (atom 0)
         dequeue (fn []
                   (let [action (async/<!! actions)]
+                    (pp/pprint {:dequeue action})
                     (swap! queue-count dec)
                     action))
         enqueue (fn [& action]
+                  (pp/pprint {:enqueue action})
                   (swap! queue-count inc)
                   (async/>!! actions action)
                   nil)]
@@ -86,16 +95,16 @@
         (let [guest-data (get-in @state [:guests guest-id])]
           (when-not guest-data
             (throw (ex-info "Guest not found" {:type :not-found})))
-          (assoc (select-keys @state [:common-data :last-updated :created-on]) :guest-data guest-data)))
+          (merge (select-keys @state [:common-data :last-updated :created-on]) (select-keys guest-data [:to-guest :from-guest]))))
       (get-common-data [_]
         (select-keys  @state [:common-data :last-updated :created-on]))
-      (update-host [_ host-id {:keys [host-data common-data]}]
+      (update-host [_ host-id {:keys [host-data common-data to-guests]}]
         (when-not (= host-id session-host-id)
           (throw (ex-info "Only the host can update host data" {:type :access-denied})))
-        (enqueue :update-host @state host-data common-data)
+        (enqueue :update-host @state host-data common-data to-guests)
         {:date-queued (Date.)})
-      (update-guest [_ guest-id {:keys [guest-data]}]
-        (enqueue :update-guest @state guest-id guest-data)
+      (update-guest [_ guest-id {:keys [from-guest]}]
+        (enqueue :update-guest @state guest-id from-guest)
         {:date-queued (Date.)})
       (close [_ host-id]
         (when-not (= host-id session-host-id)

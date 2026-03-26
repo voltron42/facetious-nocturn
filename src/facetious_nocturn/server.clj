@@ -14,13 +14,9 @@
 ;; ===========================================================================
 
 (defn read-json-body [body]
-  (pprint/pprint {:reading-body body})
   (let [body (slurp body)]
-    (pprint/pprint {:slurped-body body})
     (try
-      (let [parsed (json/read-str body :key-fn keyword)]
-        (pprint/pprint {:parsed parsed})
-        parsed)
+      (json/read-str body)
       (catch Exception e
         (throw (ex-info "Invalid JSON body" {:type :invalid-json} e))))))
 
@@ -39,15 +35,15 @@
 (defmethod handle-endpoint :host [_ {:keys [body]}]
   (let [body (read-json-body body)
         {:keys [session-id host-id]} (session-manager/host session-manager
-                                                           (get body :initialHostData)
-                                                           (get body :initialCommonData))]
+                                                           (get body "initialHostData")
+                                                           (get body "initialCommonData"))]
     {:sessionId session-id
      :hostId host-id}))
 
 (defmethod handle-endpoint :join [_ {:keys [path-params body]}]
   (let [body (read-json-body body)
         session-id (get path-params :session-id)
-        initial-data (get body :initialData)
+        initial-data (get body "initialData")
         guest-id (session-manager/join session-manager session-id initial-data)]
     {:guestId guest-id}))
 
@@ -64,11 +60,12 @@
 (defmethod handle-endpoint :get-for-guest [_ {:keys [path-params]}]
   (let [session-id (get path-params :session-id)
         guest-id (get path-params :guest-id)
-        {:keys [common-data guest-data created-at last-updated]} (session-manager/get-for-guest session-manager session-id guest-id)]
+        {:keys [common-data from-guest to-guest created-at last-updated]} (session-manager/get-for-guest session-manager session-id guest-id)]
     {:commonData common-data
      :createdAt created-at
      :lastUpdated last-updated
-     :guestData guest-data}))
+     :fromGuest from-guest
+     :toGuest to-guest}))
 
 (defmethod handle-endpoint :get-common-data [_ {:keys [path-params]}]
   (let [session-id (get path-params :session-id)
@@ -81,16 +78,15 @@
   (let [body (read-json-body body)
         session-id (get path-params :session-id)
         host-id (get path-params :host-id)
-        {:keys [date-queued]} (session-manager/update-host session-manager session-id host-id {:host-data (get body :hostData)
-                                                                                               :common-data (get body :commonData)})]
+        {:keys [date-queued]} (session-manager/update-host session-manager session-id host-id {:host-data (get body "hostData")
+                                                                                               :common-data (get body "commonData")})]
     {:dateQueued date-queued}))
 
 (defmethod handle-endpoint :update-guest [_ {:keys [path-params body]}]
   (let [body (read-json-body body)
         session-id (get path-params :session-id)
         guest-id (get path-params :guest-id)
-        {:keys [date-queued]} (session-manager/update-guest session-manager session-id guest-id {:guest-data (get body :guestData)
-                                                                                                 :common-data (get body :commonData)})]
+        {:keys [date-queued]} (session-manager/update-guest session-manager session-id guest-id {:fromGuest (get body "fromGuest")})]
     {:dateQueued date-queued}))
 
 (defmethod handle-endpoint :kick [_ {:keys [path-params]}]
@@ -132,9 +128,7 @@
 
 (defn handle [endpoint request]
   (try
-    (let [response (handle-endpoint endpoint request)]
-      (pprint/pprint {:response response})
-      {:status 200 :body response})
+    {:status 200 :body (handle-endpoint endpoint request)}
     (catch Exception e
       (handle-error e))))
 
@@ -155,155 +149,236 @@
                                      :config {:docExpansion "none"}})}}]
 
    ;; API Routes with Swagger metadata
-   ["/api"
-    ["/sessions"
-     ["/host"
-      {:tags ["Host","Init"]
-       :post
-       {:summary "Initialize a new session"
-        :description "Create a new shared session with optional schemas for host, guest, and common data"
-        :parameters {:body {:type :object
-                            :properties {:initialHostData {:type :object
-                                                           :description "optional initial host data"}
-                                         :initialCommonData {:type :object
-                                                             :description "optional initial common data"}}}}
-        :responses {200 {:description "Session created successfully"
-                         :body {:type :object
-                                :properties {:sessionId {:type :string}
-                                             :hostId {:type :string}}}}}
-        :handler #(handle :host %)}}]
+   ["/api/host"
+    {:post
+     {:summary "Initialize a new session"
+      :description "Create a new shared session with optional schemas for host, guest, and common data"
+      :swagger {:parameters [{:in :body
+                              :name :body
+                              :required false
+                              :schema {:type :object
+                                       :properties {:initialHostData {:type :object
+                                                                      :description "optional initial host data"}
+                                                    :initialCommonData {:type :object
+                                                                        :description "optional initial common data"}}}}]
+                :responses {200 {:description "Session created successfully"
+                                 :schema {:type :object
+                                          :properties {:sessionId {:type :string}
+                                                       :hostId {:type :string}}}}}}
+      :handler #(handle :host %)}}]
 
-     ["/:session-id"
-      {:get
-       {:summary "Get common session data (host or guest)"
-        :description "Retrieve common session data accessible to all participants"
-        :parameters {:path {:session-id {:type :string}}}
-        :responses {200 {:description "Common data retrieved"
-                         :body {:type :object
-                                :properties {:commonData {:type :object}}}}
-                    404 {:description "Session not found"}}
-        :handler #(handle :get-common-data %)}}
-      ["/join"
-       {:tags ["Guest","Init"]
-        :post
-        {:summary "Join an existing session as guest"
-         :description "Guest joins session with optional initial guest data"
-         :parameters {:path {:session-id {:type :string}}
-                      :body {:type :object
-                             :properties {:initialData {:type :object
-                                                        :description "optional json of initial guest data"}}}}
-         :responses {200 {:description "Guest joined successfully"
-                          :body {:type :object
-                                 :properties {:guestId {:type :string}}}}
-                     404 {:description "Session not found"}}
-         :handler #(handle :join %)}}]
+   ["/api/sessions/:session-id"
+    {:get
+     {:summary "Get common session data (host or guest)"
+      :description "Retrieve common session data accessible to all participants"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}]
+                :responses {200 {:description "Common data retrieved"
+                                 :schema {:type :object
+                                          :properties {:commonData {:type :object}}}}
+                            404 {:description "Session not found"}}}
+      :handler #(handle :get-common-data %)}}]
 
-      ["/:host-id"
-       {:tags ["Host"]
-        :get
-        {:summary "Get all session data (host only)"
-         :description "Retrieve complete session state including host, common, and all guest data"
-         :parameters {:path {:session-id {:type :string}
-                             :host-id {:type :string}}}
-         :responses {200 {:description "Session data retrieved"
-                          :body {:type :object
-                                 :properties {:hostData {:type :object}
-                                              :commonData {:type :object}
-                                              :createdOn {:type :string}
-                                              :lastModifiedOn {:type :string}
-                                              :guests {:type :object}}}}
-                     403 {:description "Unauthorized - invalid host ID"}
-                     404 {:description "Session not found"}}
-         :handler #(handle :get-for-host %)}
+   ["/api/sessions/:session-id/join"
+    {:post
+     {:summary "Join an existing session as guest"
+      :description "Guest joins session with optional initial guest data"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :body
+                              :name :body
+                              :required false
+                              :schema {:type :object
+                                       :properties {:initialData {:type :object
+                                                                  :description "optional json of initial guest data"}}}}]
+                :responses {200 {:description "Guest joined successfully"
+                                 :schema {:type :object
+                                          :properties {:guestId {:type :string}}}}
+                            404 {:description "Session not found"}}}
+      :handler #(handle :join %)}}]
 
-        :put
-        {:summary "Host updates session data"
-         :description "Host can update host, common, and guest data"
-         :parameters {:path {:session-id {:type :string}
-                             :host-id {:type :string}}
-                      :body {:type :object
-                             :properties {:hostData {:type :object
-                                                     :description "optional host data json"}
-                                          :commonData {:type :object
-                                                       :description "optional common data json"}}}}
-         :responses {200 {:description "Data updated successfully"
-                          :body {:type :object
-                                 :properties {:dateQueued {:type :string}}}}
-                     403 {:description "Unauthorized - invalid host ID"}
-                     404 {:description "Session not found"}}
-         :handler #(handle :update-host %)}}
+   ["/api/sessions/:session-id/host/:host-id"
+    {:get
+     {:summary "Get all session data (host only)"
+      :description "Retrieve complete session state including host, common, and all guest data"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :host-id
+                              :type :string
+                              :required true}]
+                :responses {200 {:description "Session data retrieved"
+                                 :schema {:type :object
+                                          :properties {:hostData {:type :object}
+                                                       :commonData {:type :object}
+                                                       :createdAt {:type :string}
+                                                       :lastUpdated {:type :string}
+                                                       :guests {:type :object
+                                                                :additionalProperties {:description "guest data by id"
+                                                                                       :type :object
+                                                                                       :properties {:toGuest {:type :object}
+                                                                                                    :fromGuest {:type :object}}}}}
+                                          :example {:hostData {}
+                                                    :commonData {}
+                                                    :createdAt ""
+                                                    :lastUpdated ""
+                                                    :toGuests {"guestId1" {:toGuest {}
+                                                                           :fromGuest {}}
+                                                               "guestId2" {:toGuest {} 
+                                                                           :fromGuest {}}}}}}
+                            403 {:description "Unauthorized - invalid host ID"}
+                            404 {:description "Session not found"}}}
+      :handler #(handle :get-for-host %)}
 
-       ["/kick/:guest-id"
-        {:delete
-         {:summary "Remove a guest from session"
-          :description "Host removes a specific guest from the session"
-          :parameters {:path {:session-id {:type :string}
-                              :host-id {:type :string}
-                              :guest-id {:type :string}}}
-          :responses {200 {:description "Guest removed successfully"
-                           :body {:type :object
-                                  :properties {:dateQueued {:type :string}}}}
-                      403 {:description "Unauthorized - invalid host ID"}
-                      404 {:description "Session or guest not found"}}
-          :handler #(handle :kick %)}}]
+     :put
+     {:summary "Host updates session data"
+      :description "Host can update host, common, and guest data"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :host-id
+                              :type :string
+                              :required true}
+                             {:in :body
+                              :name :body
+                              :required true
+                              :schema {:type :object
+                                       :properties {:hostData {:type :object
+                                                               :description "optional host data json"}
+                                                    :commonData {:type :object
+                                                                 :description "optional common data json"}
+                                                    :toGuests {:type :object
+                                                               :additionalProperties {:description "guest data by id"
+                                                                                      :type :object
+                                                                                      :properties {:toGuest {:type :object}}}
+                                                               :description "optional data for guests"}}
+                                       :example {:hostData {}
+                                                 :commonData {}
+                                                 :toGuests {"guestId1" {:toGuest {}}
+                                                            "guestId2" {:toGuest {}}}}}}]
+                :responses {200 {:description "Data updated successfully"
+                                 :schema {:type :object
+                                          :properties {:dateQueued {:type :string}}}}
+                            403 {:description "Unauthorized - invalid host ID"}
+                            404 {:description "Session not found"}}}
+      :handler #(handle :update-host %)}}]
 
-       ["/close"
-        {:delete
-         {:summary "Close session and remove all guests"
-          :description "Close session and return final state"
-          :parameters {:path {:session-id {:type :string}
-                              :host-id {:type :string}}}
-          :responses {200 {:description "Session closed"
-                           :body {:type :object
-                                  :properties {:hostData {:type :object}
-                                               :commonData {:type :object}
-                                               :createdOn {:type :string}
-                                               :lastModifiedOn {:type :string}
-                                               :guests {:type :object}}}}
-                      403 {:description "Unauthorized - invalid host ID"}
-                      404 {:description "Session not found"}}
-          :handler #(handle :close %)}}]]]
+   ["/api/sessions/:session-id/host/:host-id/kick/:guest-id"
+    {:delete
+     {:summary "Remove a guest from session"
+      :description "Host removes a specific guest from the session"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :host-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :guest-id
+                              :type :string
+                              :required true}]
+                :responses {200 {:description "Guest removed successfully"
+                                 :schema {:type :object
+                                          :properties {:dateQueued {:type :string}}}}
+                            403 {:description "Unauthorized - invalid host ID"}
+                            404 {:description "Session or guest not found"}}}
+      :handler #(handle :kick %)}}]
 
-     ["/guest/:guest-id"
-      {:tags ["Guest"]
-       :get
-       {:summary "Guest retrieves their accessible data"
-        :description "Get common data and guest-specific data"
-        :parameters {:path {:session-id {:type :string}
-                            :guest-id {:type :string}}}
-        :responses {200 {:description "Data retrieved"
-                         :body {:type :object
-                                :properties {:commonData {:type :object}
-                                             :guestData {:type :object}}}}
-                    404 {:description "Session or guest not found"}}
-        :handler #(handle :get-for-guest %)}
+   ["/api/sessions/:session-id/host/:host-id/close"
+    {:delete
+     {:summary "Close session and remove all guests"
+      :description "Close session and return final state"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :host-id
+                              :type :string
+                              :required true}]
+                :responses {200 {:description "Session closed"
+                                 :schema {:type :object
+                                          :properties {:hostData {:type :object}
+                                                       :commonData {:type :object}
+                                                       :createdAt {:type :string}
+                                                       :lastUpdated {:type :string}
+                                                       :guests {:type :object}}}}
+                            403 {:description "Unauthorized - invalid host ID"}
+                            404 {:description "Session not found"}}}
+      :handler #(handle :close %)}}]
 
-       :put
-       {:summary "Guest updates their data"
-        :description "Guest can update their own guest data and common data"
-        :parameters {:path {:session-id {:type :string}
-                            :guest-id {:type :string}}
-                     :body {:type :object
-                            :properties {:guestData {:type :object
-                                                     :description "optional guest-specific data json"}}}}
-        :responses {200 {:description "Data updated successfully"
-                         :body {:type :object
-                                :properties {:commonData {:type :string}
-                                             :guestData {:type :string}}}}
-                    404 {:description "Session or guest not found"}}
-        :handler #(handle :update-guest %)}}
+   ["/api/sessions/:session-id/guest/:guest-id"
+    {:get
+     {:summary "Guest retrieves their accessible data"
+      :description "Get common data and guest-specific data"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :guest-id
+                              :type :string
+                              :required true}]
+                :responses {200 {:description "Data retrieved"
+                                 :schema {:type :object
+                                          :properties {:commonData {:type :object}
+                                                       :createdAt {:type :string}
+                                                       :lastUpdated {:type :string}
+                                                       :fromGuest {:type :object}
+                                                       :toGuest {:type :object}}}}
+                            404 {:description "Session or guest not found"}}}
+      :handler #(handle :get-for-guest %)}
 
-      ["/leave"
-       {:delete
-        {:summary "Guest leaves the session"
-         :description "Remove the guest from the session"
-         :parameters {:path {:sessionId {:type :string}
-                             :guestId {:type :string}}}
-         :responses {200 {:description "Guest left successfully"
-                          :body {:type :object
-                                 :properties {:dateQueued {:type :string}}}}
-                     404 {:description "Session or guest not found"}}
-         :handler #(handle :leave %)}}]]]]
+     :put
+     {:summary "Guest updates their data"
+      :description "Guest can update their own guest data and common data"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :guest-id
+                              :type :string
+                              :required true}
+                             {:in :body
+                              :name :body
+                              :required true
+                              :schema {:type :object
+                                       :properties {:fromGuest {:type :object
+                                                                :description "optional guest-specific data json"}}}}]
+                :responses {200 {:description "Data updated successfully"
+                                 :schema {:type :object
+                                          :properties {:dateQueued {:type :string}}}}
+                            404 {:description "Session or guest not found"}}}
+      :handler #(handle :update-guest %)}}]
+
+   ["/api/sessions/:session-id/guest/:guest-id/leave"
+    {:delete
+     {:summary "Guest leaves the session"
+      :description "Remove the guest from the session"
+      :swagger {:parameters [{:in :path
+                              :name :session-id
+                              :type :string
+                              :required true}
+                             {:in :path
+                              :name :guest-id
+                              :type :string
+                              :required true}]
+                :responses {200 {:description "Guest left successfully"
+                                 :schema {:type :object
+                                          :properties {:dateQueued {:type :string}}}}
+                            404 {:description "Session or guest not found"}}}
+      :handler #(handle :leave %)}}]
 
    ;; Health check endpoint
    ["/health"
