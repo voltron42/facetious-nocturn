@@ -23,8 +23,8 @@ sequenceDiagram
     HA->>HA: Switch to Lobby view
     HA->>HA: Begin polling for changes
     
-    HU->>HA: Copy guest invite link
-    HA->>GU: Send link (via external means)
+    HA->>HU: Copy guest invite link
+    HU->>GU: Send link (via external means)
     
     GU->>GA: Click link with sessionId
     GA->>S: GET session (common data)
