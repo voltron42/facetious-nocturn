@@ -1,4 +1,4 @@
-namespace("spyfall.Discussion", {}, () => {
+namespace("spyfall.common.Discussion", {}, () => {
   return function(props) {
     return <div className="d-flex flex-column align-items-center justify-content-center h-100">
       {props.role == "Spy" ? (<>

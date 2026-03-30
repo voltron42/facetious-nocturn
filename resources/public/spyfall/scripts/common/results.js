@@ -1,4 +1,4 @@
-namespace("spyfall.Results", {}, () => {
+namespace("spyfall.common.Results", {}, () => {
   return function(props) {
     const latestGame = props.history[props.history.length - 1];
     const voteCounts = Object.entries(latestGame.voteCounts);

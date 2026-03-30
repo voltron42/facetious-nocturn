@@ -1,10 +1,11 @@
 namespace("spyfall.SpyfallHost", {
+  "facetious-nocturn.Callbacks": "Callbacks",
   "facetious-nocturn.Host": "Host",
   "spyfall.Discussion": "Discussion",
   "spyfall.Locations": "Locations",
   "spyfall.Voting": "Voting",
   "spyfall.Results": "Results"
-}, ({ Host, Discussion, Locations, Voting, Results }) => {
+}, ({ Callbacks, Host, Discussion, Locations, Voting, Results }) => {
   const confirmIcon = (state) => {
     if (state) {
       return <i className="fas fa-check-circle text-success"></i>;
@@ -63,44 +64,45 @@ namespace("spyfall.SpyfallHost", {
               const completed = ids.filter(id => usedIds.indexOf(id) < 0).length > 0;
               this.state.host.update({ commonData }, () => {
                 // update queued, do nothing until next poll
-              }, () => this.error());
+              }, (error) => this.error(error));
               this.setState({ guestNames });
             }
           }
-        }, () => this.error())
+        }, (error) => this.error(error))
       });
     }
     selectLocation(location) {
       this.state.host.update({ hostData: { name: this.state.hostName, chosenLocation: location } }, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
     }
     vote(name) {
       this.state.host.update({ hostData: { name: this.state.hostName, vote: name } }, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
     }
     playAgain() {
       this.state.host.update({ hostData: { name: this.state.hostName, newGameConfirm: true } }, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
     }
     kickGuest(name, guestId) {
       const playerNames = { ...this.state.playerNames };
       delete playerNames[name];
       this.state.host.update({ playerNames }, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
       this.state.host.kick(guestId, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
       this.setState({ playerNames });
     }
     quit() {
       this.state.host.close(() => this.setState({ screen: "quit" }));
       this.setState({ screen: "quit" });
     }
-    error() {
+    error(error) {
+      Callbacks.defaultOnError(error);
       this.setState({ screen: undefined });
     }
     render() {

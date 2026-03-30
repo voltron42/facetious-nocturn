@@ -1,0 +1,13 @@
+{
+  "props": {
+    "name": "<string>",
+    "vote": "<vote>",
+    "votes": {
+      "<name>": "<vote>"
+    },
+    "clearing": "<boolean>",
+    "onVote": "<function(name,vote):void>"
+  },
+  "<vote>":"<'?'|1|2|3|5|8>",
+  "<icon>":"<'?'|1|2|3|5|8|'square-full'>"
+}

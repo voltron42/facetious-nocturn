@@ -1,4 +1,4 @@
-namespace("spyfall.Voting", {}, () => {
+namespace("spyfall.common.Voting", {}, () => {
   return function(props) {
     return (<div className="d-flex flex-column align-items-center justify-content-center h-100">
       <h1 className="mb-4">Vote For Who You Think The Spy Is</h1>

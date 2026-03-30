@@ -1,13 +1,14 @@
 namespace("facetious-nocturn.Callbacks", {
 }, () => {
+  const defaultOnError = (({ requestedFile, status, statusText, responseText, error }) => {
+    if (error) {
+      console.error({ error });
+    } else {
+      console.error(`Request for ${requestedFile} failed with status ${status} ${statusText}: ${responseText}`);
+    }
+  });
   const callbacks = function(onSuccess, onError) {
-    const onFailure = onError || (({ requestedFile, status, statusText, responseText, error }) => {
-      if (error) {
-        console.error({ error });
-      } else {
-        console.error(`Request for ${requestedFile} failed with status ${status} ${statusText}: ${responseText}`);
-      }
-    });
+    const onFailure = onError || defaultOnError;
     return {
       success: (responseText) => {
         console.log({ message: `Request succeeded with response:`, responseText });
@@ -31,5 +32,6 @@ namespace("facetious-nocturn.Callbacks", {
       }
     }
   };
+  callbacks.defaultOnError = defaultOnError;
   return callbacks;
 });

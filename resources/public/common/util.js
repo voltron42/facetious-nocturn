@@ -11,8 +11,8 @@ namespace("common.Utilities", {}, () => {
       return acc;
     }, {});
   };
-  const appendQueryToUrl = (query) => {
-    const url = location.href.split("?")[0];
+  const appendQueryToUrl = (query, url) => {
+    url = url || location.href.split("?")[0];
     const queryString = Object.entries(query).map(([key, value]) => `${key}=${value}`).join("&");
     location.assign(`${url}?${queryString}`);
   };

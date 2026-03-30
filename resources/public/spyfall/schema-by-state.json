@@ -1,0 +1,15 @@
+[{
+  "state": "host-init",
+  "hostData": {
+    "name":""
+  },
+  "commonData": {
+    
+  },
+  "toGuest": {
+
+  },
+  "fromGuest": {
+
+  }
+}]

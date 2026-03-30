@@ -1,10 +1,11 @@
 namespace("spyfall.SpyfallGuest", {
+  "facetious-nocturn.Callbacks": "Callbacks",
   "facetious-nocturn.Guest": "Guest",
   "facetious-nocturn.Session": "Session",
   "spyfall.Discussion": "Discussion",
   "spyfall.Voting": "Voting",
   "spyfall.Results": "Results"
-}, ({ Guest, Session, Discussion, Voting, Results }) => {
+}, ({ Callbacks, Guest, Session, Discussion, Voting, Results }) => {
   const confirmIcon = (guestId,state) => {
     if (state == guestId) {
       return <i className="fas fa-check-circle text-success"></i>;
@@ -32,7 +33,7 @@ namespace("spyfall.SpyfallGuest", {
             return acc;
           }, {})
         });
-      }, () => this.error());
+      }, (error) => this.error(error));
     }
     endDiscussionPoll(commonData) {
       if (commonData.countdown.expired) {
@@ -48,14 +49,14 @@ namespace("spyfall.SpyfallGuest", {
                 screen: "results",
                 history: commonData.history,
                 endVotingPoll: undefined,
-                endResultsPoll: this.state.guest.poll(({ commonData }) => this.endResultsPoll(commonData), () => this.error())
+                endResultsPoll: this.state.guest.poll(({ commonData }) => this.endResultsPoll(commonData), (error) => this.error(error))
               });
             } else {
               this.setState({
                 votes: commonData.votes,
               });
             }
-          }, () => this.error())
+          }, (error) => this.error(error))
         });
       } else if (commonData.chosenLocation) {
         this.state.endDiscussionPoll();
@@ -63,7 +64,7 @@ namespace("spyfall.SpyfallGuest", {
           screen: "results",
           history: commonData.history,
           endDiscussionPoll: undefined,
-          endResultsPoll: this.state.guest.poll(({ commonData }) => this.endResultsPoll(commonData), () => this.error())
+          endResultsPoll: this.state.guest.poll(({ commonData }) => this.endResultsPoll(commonData), (error) => this.error(error))
         });
       } else {
         this.setState({
@@ -84,7 +85,7 @@ namespace("spyfall.SpyfallGuest", {
           locations: Array.from(commonData.locations),
           endResultsPoll: undefined,
           newGameConfirms: undefined,
-          endDiscussionPoll: this.state.guest.poll(({ commonData }) => this.endDiscussionPoll(commonData), () => this.error())
+          endDiscussionPoll: this.state.guest.poll(({ commonData }) => this.endDiscussionPoll(commonData), (error) => this.error(error))
         });
       } else {
         this.setState({
@@ -119,12 +120,12 @@ namespace("spyfall.SpyfallGuest", {
                 role: commonData.roles[guestId],
                 locations: Array.from(commonData.locations),
                 endLobbyPoll: undefined,
-                endDiscussionPoll: this.state.guest.poll(({ commonData }) => this.endDiscussionPoll(commonData), () => this.error())
+                endDiscussionPoll: this.state.guest.poll(({ commonData }) => this.endDiscussionPoll(commonData), (error) => this.error(error))
               });
             } else {
               this.setState({ playerNames: guestNames });
             }
-          }, () => this.error())
+          }, (error) => this.error(error))
         });
       });
       this.setState({ joining: true });
@@ -132,7 +133,7 @@ namespace("spyfall.SpyfallGuest", {
     selectGuestName(name) {
       this.state.guest.update({ guestData: { name }}, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
       const guestNames = Object.entries(this.state.guestNames).reduce((acc, [guestName, state]) => {
         acc[guestName] = state;
         return acc;
@@ -143,26 +144,27 @@ namespace("spyfall.SpyfallGuest", {
     selectLocation(location) {
       this.state.guest.update({ guestData:{ name: this.state.name, chosenLocation: location }}, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
       this.setState({ chosenLocation: location, myChosenLocation: location });
     }
     vote(name) {
       this.state.guest.update({ guestData: { name: this.state.name, vote: name }}, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
       this.setState({ vote: name });
     }
     playAgain() {
       this.state.guest.update({ guestData: { name: this.state.name, newGameConfirm: true }}, () => {
         // update queued, do nothing until next poll
-      }, () => this.error());
+      }, (error) => this.error(error));
       this.setState({ newGameConfirm: true });
     }
     quit() {
       this.state.guest.quit(() => this.setState({ screen: "quit" }));
       this.setState({ screen: "quit" });
     }
-    error() {
+    error(error) {
+      Callbacks.defaultOnError(error);
       this.setState({ screen: undefined });
     }
     render() {

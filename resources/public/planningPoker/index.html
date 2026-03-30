@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning Poker</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+    />
+    <script src="https://gizmo-atheneum.github.io/structure/importnamespace/script.js"></script>
+
+    <script type="text/babel" src="../common/util.js"></script>
+
+    <script type="text/babel" src="../facetious-nocturn/callbacks.js"></script>
+    <script type="text/babel" src="../facetious-nocturn/client.js"></script>
+    <script type="text/babel" src="../facetious-nocturn/constants.js"></script>
+    <script type="text/babel" src="../facetious-nocturn/host.js"></script>
+
+    <!-- bind app root -->
+    <script type="text/babel">
+      (function () {
+        const { util, Host } = imports({
+          "common.Utilities": "util",
+          "facetious-nocturn.Host": "Host",
+        });
+        const newPath = location.href.split("/");
+        newPath.pop();
+        const newPathStr = newPath.join("/") + "/host/index.html";
+        window.hostNewSession = function() {
+          Host.newSession({}, ({ sessionId, hostId }) => {
+            util.appendQueryToUrl({ sessionId, hostId }, newPathStr);
+          });
+        }
+      })();
+    </script>
+</head>
+<body class="bg-dark text-light">
+  <div>
+    <div class="d-flex flex-column align-items-center justify-content-center h-100">
+      <h1 class="mb-4">Planning Poker</h1>
+      <button class="btn btn-primary" onclick="hostNewSession()">Host New Session</button>
+    </div>
+  </div>
+</body>
+</html>
